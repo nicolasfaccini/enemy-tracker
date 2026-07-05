@@ -114,6 +114,14 @@
     opacity: 0.7;
     margin-top: 2px;
   }
+  .planet-badge {
+    font-size: 10px;
+    font-weight: 700;
+    color: #e3c56f;
+    margin-top: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
   .reset-all-wrap {
     text-align: center;
     margin-top: 8px;
@@ -152,16 +160,24 @@ const SYSTEMS = [
   { name: "Tauceti / Oort", planets: ["Venar","Calon","Erebos"] }
 ];
 
-const STORAGE_KEY = "enemy-tracker-state-v2";
+const STORAGE_KEY = "enemy-tracker-state-v3";
 let state = {};
 
 function defaultState() {
-  const s = {};
+  const planets = {};
+  const order = {};
   SYSTEMS.forEach(sys => {
-    s[sys.name] = {};
-    sys.planets.forEach(p => s[sys.name][p] = { clicked: false, lastAt: null });
+    planets[sys.name] = {};
+    sys.planets.forEach(p => planets[sys.name][p] = { clicked: false, lastAt: null });
+    order[sys.name] = { current: [], last: [] };
   });
-  return s;
+  return { planets, order };
+}
+
+function predictedNext(sysName) {
+  const last = state.order[sysName].last;
+  if (!last || last.length === 0) return null;
+  return last.find(p => !state.planets[sysName][p].clicked) || null;
 }
 
 function load() {
@@ -193,15 +209,23 @@ function formatElapsed(ts) {
 }
 
 function toggle(sysName, planet) {
-  const cell = state[sysName][planet];
+  const cell = state.planets[sysName][planet];
+  const order = state.order[sysName];
   cell.clicked = !cell.clicked;
-  if (cell.clicked) cell.lastAt = Date.now();
-  const allDone = SYSTEMS.find(s => s.name === sysName).planets.every(p => state[sysName][p].clicked);
+  if (cell.clicked) {
+    cell.lastAt = Date.now();
+    if (!order.current.includes(planet)) order.current.push(planet);
+  } else {
+    order.current = order.current.filter(p => p !== planet);
+  }
+  const allDone = SYSTEMS.find(s => s.name === sysName).planets.every(p => state.planets[sysName][p].clicked);
   save();
   render();
   if (allDone) {
     setTimeout(() => {
-      SYSTEMS.find(s => s.name === sysName).planets.forEach(p => state[sysName][p].clicked = false);
+      order.last = order.current.slice();
+      order.current = [];
+      SYSTEMS.find(s => s.name === sysName).planets.forEach(p => state.planets[sysName][p].clicked = false);
       save();
       render();
     }, 400);
@@ -209,7 +233,8 @@ function toggle(sysName, planet) {
 }
 
 function resetSystem(sysName) {
-  SYSTEMS.find(s => s.name === sysName).planets.forEach(p => state[sysName][p].clicked = false);
+  SYSTEMS.find(s => s.name === sysName).planets.forEach(p => state.planets[sysName][p].clicked = false);
+  state.order[sysName].current = [];
   save();
   render();
 }
@@ -224,7 +249,8 @@ function render() {
   const app = document.getElementById("app");
   app.innerHTML = "";
   SYSTEMS.forEach(sys => {
-    const clickedCount = sys.planets.filter(p => state[sys.name][p].clicked).length;
+    const clickedCount = sys.planets.filter(p => state.planets[sys.name][p].clicked).length;
+    const predicted = predictedNext(sys.name);
     const card = document.createElement("div");
     card.className = "card";
 
@@ -256,7 +282,7 @@ function render() {
     grid.className = "planet-grid";
 
     sys.planets.forEach(p => {
-      const cell = state[sys.name][p];
+      const cell = state.planets[sys.name][p];
       const btn = document.createElement("button");
       btn.className = "planet-btn" + (cell.clicked ? " clicked" : "");
       btn.onclick = () => toggle(sys.name, p);
@@ -271,6 +297,13 @@ function render() {
         tsEl.className = "planet-ts";
         tsEl.textContent = elapsed;
         btn.appendChild(tsEl);
+      }
+
+      if (!cell.clicked && p === predicted) {
+        const badgeEl = document.createElement("div");
+        badgeEl.className = "planet-badge";
+        badgeEl.textContent = "◆ probable próximo";
+        btn.appendChild(badgeEl);
       }
 
       grid.appendChild(btn);
