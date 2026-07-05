@@ -275,12 +275,11 @@ function formatElapsed(ts) {
   return "hace " + day + "d";
 }
 
-function ageClass(ts) {
-  if (!ts) return "";
-  const min = (Date.now() - ts) / 60000;
-  if (min < 15) return "";
-  if (min < 45) return " planet-ts-mid";
-  return " planet-ts-old";
+function rankClass(rank) {
+  if (!rank) return "";
+  if (rank === 1) return " planet-ts-old";
+  if (rank <= 7) return " planet-ts-mid";
+  return "";
 }
 
 function toggle(sysName, planet) {
@@ -363,7 +362,7 @@ function render() {
         btn.appendChild(tsEl);
 
         const elapsedEl = document.createElement("div");
-        elapsedEl.className = "planet-ts" + ageClass(ts);
+        elapsedEl.className = "planet-ts" + rankClass(ranks[sys.name + "|" + p]);
         elapsedEl.textContent = formatElapsed(ts);
         btn.appendChild(elapsedEl);
       }
