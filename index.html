@@ -221,7 +221,9 @@ function globalWaitRanks() {
 function topWaiting(n) {
   const all = [];
   SYSTEMS.forEach(sys => {
+    const blocked = blockedSet(sys.name);
     sys.planets.forEach(p => {
+      if (blocked.has(p)) return;
       const at = lastAt(sys.name, p);
       if (at !== null) all.push({ planet: p, at: at });
     });
