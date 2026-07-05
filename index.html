@@ -117,13 +117,10 @@
   .planet-badge {
     font-size: 10px;
     font-weight: 700;
-    color: #e3c56f;
+    color: #6fe3a3;
     margin-top: 4px;
     text-transform: uppercase;
     letter-spacing: 0.02em;
-  }
-  .planet-badge-certain {
-    color: #6fe3a3;
   }
   .reset-all-wrap {
     text-align: center;
@@ -199,15 +196,7 @@ function nextInfo(sysName) {
   if (available.length === 1) {
     return { planet: available[0], certain: true };
   }
-  let best = null, bestIdx = Infinity;
-  available.forEach(p => {
-    let idx = -1;
-    for (let i = history.length - 1; i >= 0; i--) {
-      if (history[i].planet === p) { idx = i; break; }
-    }
-    if (idx < bestIdx) { bestIdx = idx; best = p; }
-  });
-  return best ? { planet: best, certain: false } : null;
+  return null;
 }
 
 function load() {
@@ -311,8 +300,8 @@ function render() {
 
       if (!isBlocked && next && p === next.planet) {
         const badgeEl = document.createElement("div");
-        badgeEl.className = next.certain ? "planet-badge planet-badge-certain" : "planet-badge";
-        badgeEl.textContent = next.certain ? "✓ 100% seguro" : "◆ probable próximo";
+        badgeEl.className = "planet-badge";
+        badgeEl.textContent = "✓ 100% seguro";
         btn.appendChild(badgeEl);
       }
 
