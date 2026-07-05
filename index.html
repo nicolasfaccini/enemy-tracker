@@ -111,8 +111,17 @@
   .planet-ts {
     font-size: 11px;
     font-weight: 400;
-    opacity: 0.7;
     margin-top: 2px;
+    opacity: 0.6;
+  }
+  .planet-ts-mid {
+    color: #e3c56f;
+    opacity: 0.9;
+  }
+  .planet-ts-old {
+    color: #e3915f;
+    font-weight: 600;
+    opacity: 1;
   }
   .planet-badge {
     font-size: 10px;
@@ -207,6 +216,7 @@ function load() {
     state = defaultState();
   }
   render();
+  setInterval(render, 60000);
 }
 
 function save() {
@@ -218,6 +228,14 @@ function save() {
 function formatTime(ts) {
   if (!ts) return null;
   return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function ageClass(ts) {
+  if (!ts) return "";
+  const min = (Date.now() - ts) / 60000;
+  if (min < 15) return "";
+  if (min < 45) return " planet-ts-mid";
+  return " planet-ts-old";
 }
 
 function toggle(sysName, planet) {
@@ -290,10 +308,11 @@ function render() {
       nameEl.textContent = p;
       btn.appendChild(nameEl);
 
-      const time = formatTime(lastAt(sys.name, p));
+      const ts = lastAt(sys.name, p);
+      const time = formatTime(ts);
       if (time) {
         const tsEl = document.createElement("div");
-        tsEl.className = "planet-ts";
+        tsEl.className = "planet-ts" + ageClass(ts);
         tsEl.textContent = time;
         btn.appendChild(tsEl);
       }
