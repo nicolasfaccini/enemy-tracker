@@ -196,14 +196,17 @@ function lastAt(sysName, planet) {
   return null;
 }
 
-function waitRanks(sysName) {
-  const sys = SYSTEMS.find(s => s.name === sysName);
-  const withTime = sys.planets
-    .map(p => ({ p: p, at: lastAt(sysName, p) }))
-    .filter(x => x.at !== null)
-    .sort((a, b) => a.at - b.at);
+function globalWaitRanks() {
+  const withTime = [];
+  SYSTEMS.forEach(sys => {
+    sys.planets.forEach(p => {
+      const at = lastAt(sys.name, p);
+      if (at !== null) withTime.push({ key: sys.name + "|" + p, at: at });
+    });
+  });
+  withTime.sort((a, b) => a.at - b.at);
   const ranks = {};
-  withTime.forEach((x, i) => { ranks[x.p] = i + 1; });
+  withTime.forEach((x, i) => { ranks[x.key] = i + 1; });
   return ranks;
 }
 
@@ -276,10 +279,10 @@ function resetAll() {
 function render() {
   const app = document.getElementById("app");
   app.innerHTML = "";
+  const ranks = globalWaitRanks();
   SYSTEMS.forEach(sys => {
     const blocked = blockedSet(sys.name);
     const next = nextInfo(sys.name);
-    const ranks = waitRanks(sys.name);
     const card = document.createElement("div");
     card.className = "card";
 
@@ -325,7 +328,7 @@ function render() {
       if (time) {
         const tsEl = document.createElement("div");
         tsEl.className = "planet-ts" + ageClass(ts);
-        tsEl.textContent = time + " -" + ranks[p];
+        tsEl.textContent = time + " -" + ranks[sys.name + "|" + p];
         btn.appendChild(tsEl);
       }
 
