@@ -62,6 +62,14 @@
     font-size: 16px;
     font-weight: 600;
   }
+  .priority-list {
+    font-family: "Segoe UI", monospace;
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+    margin: 12px 0 14px;
+    word-spacing: 2px;
+  }
   .card-status {
     display: flex;
     align-items: center;
@@ -210,6 +218,18 @@ function globalWaitRanks() {
   return ranks;
 }
 
+function topWaiting(n) {
+  const all = [];
+  SYSTEMS.forEach(sys => {
+    sys.planets.forEach(p => {
+      const at = lastAt(sys.name, p);
+      if (at !== null) all.push({ planet: p, at: at });
+    });
+  });
+  all.sort((a, b) => a.at - b.at);
+  return all.slice(0, n);
+}
+
 function nextInfo(sysName) {
   const sys = SYSTEMS.find(s => s.name === sysName);
   const history = state.history[sysName];
@@ -345,6 +365,37 @@ function render() {
     card.appendChild(grid);
     app.appendChild(card);
   });
+
+  const top = topWaiting(7);
+  if (top.length > 0) {
+    const pCard = document.createElement("div");
+    pCard.className = "card";
+
+    const pTitle = document.createElement("div");
+    pTitle.className = "card-title";
+    pTitle.textContent = "Top 7 prioridad";
+    pCard.appendChild(pTitle);
+
+    const listText = top.map((x, i) => (i + 1) + "." + x.planet).join("  ");
+
+    const listEl = document.createElement("div");
+    listEl.className = "priority-list";
+    listEl.textContent = listText;
+    pCard.appendChild(listEl);
+
+    const copyBtn = document.createElement("button");
+    copyBtn.className = "reset-all-btn";
+    copyBtn.textContent = "Copiar";
+    copyBtn.onclick = () => {
+      navigator.clipboard.writeText(listText).then(() => {
+        copyBtn.textContent = "Copiado ✓";
+        setTimeout(() => { copyBtn.textContent = "Copiar"; }, 1500);
+      });
+    };
+    pCard.appendChild(copyBtn);
+
+    app.appendChild(pCard);
+  }
 }
 
 load();
