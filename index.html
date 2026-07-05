@@ -196,6 +196,17 @@ function lastAt(sysName, planet) {
   return null;
 }
 
+function waitRanks(sysName) {
+  const sys = SYSTEMS.find(s => s.name === sysName);
+  const withTime = sys.planets
+    .map(p => ({ p: p, at: lastAt(sysName, p) }))
+    .filter(x => x.at !== null)
+    .sort((a, b) => a.at - b.at);
+  const ranks = {};
+  withTime.forEach((x, i) => { ranks[x.p] = i + 1; });
+  return ranks;
+}
+
 function nextInfo(sysName) {
   const sys = SYSTEMS.find(s => s.name === sysName);
   const history = state.history[sysName];
@@ -268,6 +279,7 @@ function render() {
   SYSTEMS.forEach(sys => {
     const blocked = blockedSet(sys.name);
     const next = nextInfo(sys.name);
+    const ranks = waitRanks(sys.name);
     const card = document.createElement("div");
     card.className = "card";
 
@@ -313,7 +325,7 @@ function render() {
       if (time) {
         const tsEl = document.createElement("div");
         tsEl.className = "planet-ts" + ageClass(ts);
-        tsEl.textContent = time;
+        tsEl.textContent = time + " -" + ranks[p];
         btn.appendChild(tsEl);
       }
 
