@@ -122,15 +122,6 @@
     margin-top: 2px;
     opacity: 0.6;
   }
-  .planet-ts-mid {
-    color: #e3c56f;
-    opacity: 0.9;
-  }
-  .planet-ts-old {
-    color: #e3915f;
-    font-weight: 600;
-    opacity: 1;
-  }
   .planet-badge {
     font-size: 10px;
     font-weight: 700;
@@ -275,11 +266,13 @@ function formatElapsed(ts) {
   return "hace " + day + "d";
 }
 
-function rankClass(rank) {
-  if (!rank) return "";
-  if (rank === 1) return " planet-ts-old";
-  if (rank <= 7) return " planet-ts-mid";
-  return "";
+function rankColor(rank) {
+  if (!rank || rank > 7) return "";
+  const hot = [224, 90, 61];
+  const cool = [227, 197, 111];
+  const t = (rank - 1) / 6;
+  const rgb = hot.map((h, i) => Math.round(h + (cool[i] - h) * t));
+  return "rgb(" + rgb.join(",") + ")";
 }
 
 function toggle(sysName, planet) {
@@ -361,8 +354,15 @@ function render() {
         tsEl.textContent = time + " -" + ranks[sys.name + "|" + p];
         btn.appendChild(tsEl);
 
+        const rank = ranks[sys.name + "|" + p];
+        const color = rankColor(rank);
         const elapsedEl = document.createElement("div");
-        elapsedEl.className = "planet-ts" + rankClass(ranks[sys.name + "|" + p]);
+        elapsedEl.className = "planet-ts";
+        if (color) {
+          elapsedEl.style.color = color;
+          elapsedEl.style.opacity = 1 - (rank - 1) * 0.03;
+          elapsedEl.style.fontWeight = "600";
+        }
         elapsedEl.textContent = formatElapsed(ts);
         btn.appendChild(elapsedEl);
       }
