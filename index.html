@@ -146,7 +146,7 @@
 </head>
 <body>
   <h1>Tracker de spawn de enemigos</h1>
-  <p class="subtitle">Tocá un planeta cuando matás el bicho ahi. Cuando se completan todos los de un sistema, se reinicia solo.</p>
+  <p class="subtitle">Tocá el planeta donde matás al bicho. Se libera solo cuando salieron todos los demás del sistema.</p>
   <div class="container" id="app"></div>
   <div class="reset-all-wrap">
     <button class="reset-all-btn" onclick="resetAll()">Reiniciar todo</button>
@@ -163,32 +163,51 @@ const SYSTEMS = [
   { name: "Tauceti / Oort", planets: ["Venar","Calon","Erebos"] }
 ];
 
-const STORAGE_KEY = "enemy-tracker-state-v3";
+const STORAGE_KEY = "enemy-tracker-state-v4";
 let state = {};
 
 function defaultState() {
-  const planets = {};
-  const order = {};
-  SYSTEMS.forEach(sys => {
-    planets[sys.name] = {};
-    sys.planets.forEach(p => planets[sys.name][p] = { clicked: false, lastAt: null });
-    order[sys.name] = { current: [], last: [] };
-  });
-  return { planets, order };
+  const history = {};
+  SYSTEMS.forEach(sys => { history[sys.name] = []; });
+  return { history };
+}
+
+function blockedSet(sysName) {
+  const sys = SYSTEMS.find(s => s.name === sysName);
+  const history = state.history[sysName];
+  const blocked = new Set();
+  for (let i = history.length - 1; i >= 0 && blocked.size < sys.planets.length - 1; i--) {
+    blocked.add(history[i].planet);
+  }
+  return blocked;
+}
+
+function lastAt(sysName, planet) {
+  const history = state.history[sysName];
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i].planet === planet) return history[i].at;
+  }
+  return null;
 }
 
 function nextInfo(sysName) {
   const sys = SYSTEMS.find(s => s.name === sysName);
-  const unclicked = sys.planets.filter(p => !state.planets[sysName][p].clicked);
-  if (unclicked.length === 1) {
-    return { planet: unclicked[0], certain: true };
+  const history = state.history[sysName];
+  if (history.length === 0) return null;
+  const blocked = blockedSet(sysName);
+  const available = sys.planets.filter(p => !blocked.has(p));
+  if (available.length === 1) {
+    return { planet: available[0], certain: true };
   }
-  if (unclicked.length > 1) {
-    const last = state.order[sysName].last;
-    const guess = last && last.find(p => !state.planets[sysName][p].clicked);
-    if (guess) return { planet: guess, certain: false };
-  }
-  return null;
+  let best = null, bestIdx = Infinity;
+  available.forEach(p => {
+    let idx = -1;
+    for (let i = history.length - 1; i >= 0; i--) {
+      if (history[i].planet === p) { idx = i; break; }
+    }
+    if (idx < bestIdx) { bestIdx = idx; best = p; }
+  });
+  return best ? { planet: best, certain: false } : null;
 }
 
 function load() {
@@ -213,32 +232,19 @@ function formatTime(ts) {
 }
 
 function toggle(sysName, planet) {
-  const cell = state.planets[sysName][planet];
-  const order = state.order[sysName];
-  cell.clicked = !cell.clicked;
-  if (cell.clicked) {
-    cell.lastAt = Date.now();
-    if (!order.current.includes(planet)) order.current.push(planet);
+  const history = state.history[sysName];
+  const last = history[history.length - 1];
+  if (last && last.planet === planet) {
+    history.pop();
   } else {
-    order.current = order.current.filter(p => p !== planet);
+    history.push({ planet: planet, at: Date.now() });
   }
-  const allDone = SYSTEMS.find(s => s.name === sysName).planets.every(p => state.planets[sysName][p].clicked);
   save();
   render();
-  if (allDone) {
-    setTimeout(() => {
-      order.last = order.current.slice();
-      order.current = [];
-      SYSTEMS.find(s => s.name === sysName).planets.forEach(p => state.planets[sysName][p].clicked = false);
-      save();
-      render();
-    }, 400);
-  }
 }
 
 function resetSystem(sysName) {
-  SYSTEMS.find(s => s.name === sysName).planets.forEach(p => state.planets[sysName][p].clicked = false);
-  state.order[sysName].current = [];
+  state.history[sysName] = [];
   save();
   render();
 }
@@ -253,7 +259,7 @@ function render() {
   const app = document.getElementById("app");
   app.innerHTML = "";
   SYSTEMS.forEach(sys => {
-    const clickedCount = sys.planets.filter(p => state.planets[sys.name][p].clicked).length;
+    const blocked = blockedSet(sys.name);
     const next = nextInfo(sys.name);
     const card = document.createElement("div");
     card.className = "card";
@@ -269,7 +275,7 @@ function render() {
     statusWrap.className = "card-status";
 
     const status = document.createElement("span");
-    status.textContent = clickedCount + " / " + sys.planets.length + " muertos";
+    status.textContent = blocked.size + " / " + sys.planets.length + " bloqueados";
 
     const resetBtn = document.createElement("button");
     resetBtn.className = "reset-btn";
@@ -286,16 +292,16 @@ function render() {
     grid.className = "planet-grid";
 
     sys.planets.forEach(p => {
-      const cell = state.planets[sys.name][p];
+      const isBlocked = blocked.has(p);
       const btn = document.createElement("button");
-      btn.className = "planet-btn" + (cell.clicked ? " clicked" : "");
+      btn.className = "planet-btn" + (isBlocked ? " clicked" : "");
       btn.onclick = () => toggle(sys.name, p);
 
       const nameEl = document.createElement("div");
       nameEl.textContent = p;
       btn.appendChild(nameEl);
 
-      const time = formatTime(cell.lastAt);
+      const time = formatTime(lastAt(sys.name, p));
       if (time) {
         const tsEl = document.createElement("div");
         tsEl.className = "planet-ts";
@@ -303,7 +309,7 @@ function render() {
         btn.appendChild(tsEl);
       }
 
-      if (!cell.clicked && next && p === next.planet) {
+      if (!isBlocked && next && p === next.planet) {
         const badgeEl = document.createElement("div");
         badgeEl.className = next.certain ? "planet-badge planet-badge-certain" : "planet-badge";
         badgeEl.textContent = next.certain ? "✓ 100% seguro" : "◆ probable próximo";
