@@ -129,7 +129,7 @@
 </head>
 <body>
   <h1>Tracker de spawn de enemigos</h1>
-  <p class="subtitle">Tocá un planeta cuando matás el bicho ahi. Cuando se completan todos los de un sistema, se reinicia solo.</p>
+  <p class="subtitle">Tocá un planeta cuando matás el bicho ahi. Se sincroniza en vivo con todos los que tengan este link. Cuando se completan todos los de un sistema, se reinicia solo.</p>
   <div class="container" id="app"></div>
   <div class="reset-all-wrap">
     <button class="reset-all-btn" onclick="resetAll()">Reiniciar todo</button>
@@ -146,8 +146,9 @@ const SYSTEMS = [
   { name: "Tauceti / Oort", planets: ["Venar","Calon","Erebos"] }
 ];
 
-const STORAGE_KEY = "enemy-tracker-state-v1";
-let state = {};
+const BLOB_URL = "https://jsonblob.com/api/jsonBlob/019f2f9a-692c-74f9-b785-8992f77491f8";
+const POLL_MS = 3000;
+let state = null;
 
 function defaultState() {
   const s = {};
@@ -155,46 +156,66 @@ function defaultState() {
   return s;
 }
 
-function load() {
+async function fetchRemote() {
+  const res = await fetch(BLOB_URL, { cache: "no-store" });
+  if (!res.ok) throw new Error("fetch failed");
+  return res.json();
+}
+
+async function pushRemote() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    state = raw ? JSON.parse(raw) : defaultState();
+    await fetch(BLOB_URL, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(state)
+    });
+  } catch (e) {}
+}
+
+async function load() {
+  try {
+    state = await fetchRemote();
   } catch (e) {
     state = defaultState();
   }
   render();
+  setInterval(pollRemote, POLL_MS);
 }
 
-function save() {
+async function pollRemote() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    const remote = await fetchRemote();
+    if (JSON.stringify(remote) !== JSON.stringify(state)) {
+      state = remote;
+      render();
+    }
   } catch (e) {}
 }
 
 function toggle(sysName, planet) {
   state[sysName][planet] = !state[sysName][planet];
   const allDone = SYSTEMS.find(s => s.name === sysName).planets.every(p => state[sysName][p]);
-  save();
   render();
+  pushRemote();
   if (allDone) {
     setTimeout(() => {
       SYSTEMS.find(s => s.name === sysName).planets.forEach(p => state[sysName][p] = false);
-      save();
       render();
+      pushRemote();
     }, 400);
   }
 }
 
 function resetSystem(sysName) {
   SYSTEMS.find(s => s.name === sysName).planets.forEach(p => state[sysName][p] = false);
-  save();
   render();
+  pushRemote();
 }
 
 function resetAll() {
   state = defaultState();
-  save();
   render();
+  pushRemote();
 }
 
 function render() {
