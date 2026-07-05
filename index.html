@@ -122,6 +122,9 @@
     text-transform: uppercase;
     letter-spacing: 0.02em;
   }
+  .planet-badge-certain {
+    color: #6fe3a3;
+  }
   .reset-all-wrap {
     text-align: center;
     margin-top: 8px;
@@ -174,10 +177,18 @@ function defaultState() {
   return { planets, order };
 }
 
-function predictedNext(sysName) {
-  const last = state.order[sysName].last;
-  if (!last || last.length === 0) return null;
-  return last.find(p => !state.planets[sysName][p].clicked) || null;
+function nextInfo(sysName) {
+  const sys = SYSTEMS.find(s => s.name === sysName);
+  const unclicked = sys.planets.filter(p => !state.planets[sysName][p].clicked);
+  if (unclicked.length === 1) {
+    return { planet: unclicked[0], certain: true };
+  }
+  if (unclicked.length > 1) {
+    const last = state.order[sysName].last;
+    const guess = last && last.find(p => !state.planets[sysName][p].clicked);
+    if (guess) return { planet: guess, certain: false };
+  }
+  return null;
 }
 
 function load() {
@@ -188,7 +199,6 @@ function load() {
     state = defaultState();
   }
   render();
-  setInterval(render, 60000);
 }
 
 function save() {
@@ -197,15 +207,9 @@ function save() {
   } catch (e) {}
 }
 
-function formatElapsed(ts) {
+function formatTime(ts) {
   if (!ts) return null;
-  const min = Math.floor((Date.now() - ts) / 60000);
-  if (min < 1) return "recién";
-  if (min < 60) return "hace " + min + "m";
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return "hace " + hr + "h";
-  const day = Math.floor(hr / 24);
-  return "hace " + day + "d";
+  return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
 function toggle(sysName, planet) {
@@ -250,7 +254,7 @@ function render() {
   app.innerHTML = "";
   SYSTEMS.forEach(sys => {
     const clickedCount = sys.planets.filter(p => state.planets[sys.name][p].clicked).length;
-    const predicted = predictedNext(sys.name);
+    const next = nextInfo(sys.name);
     const card = document.createElement("div");
     card.className = "card";
 
@@ -291,18 +295,18 @@ function render() {
       nameEl.textContent = p;
       btn.appendChild(nameEl);
 
-      const elapsed = formatElapsed(cell.lastAt);
-      if (elapsed) {
+      const time = formatTime(cell.lastAt);
+      if (time) {
         const tsEl = document.createElement("div");
         tsEl.className = "planet-ts";
-        tsEl.textContent = elapsed;
+        tsEl.textContent = time;
         btn.appendChild(tsEl);
       }
 
-      if (!cell.clicked && p === predicted) {
+      if (!cell.clicked && next && p === next.planet) {
         const badgeEl = document.createElement("div");
-        badgeEl.className = "planet-badge";
-        badgeEl.textContent = "◆ probable próximo";
+        badgeEl.className = next.certain ? "planet-badge planet-badge-certain" : "planet-badge";
+        badgeEl.textContent = next.certain ? "✓ 100% seguro" : "◆ probable próximo";
         btn.appendChild(badgeEl);
       }
 
