@@ -108,6 +108,12 @@
     background: var(--red-bg);
     color: var(--red-text);
   }
+  .planet-ts {
+    font-size: 11px;
+    font-weight: 400;
+    opacity: 0.7;
+    margin-top: 2px;
+  }
   .reset-all-wrap {
     text-align: center;
     margin-top: 8px;
@@ -129,7 +135,7 @@
 </head>
 <body>
   <h1>Tracker de spawn de enemigos</h1>
-  <p class="subtitle">Tocá un planeta cuando matás el bicho ahi. Se sincroniza en vivo con todos los que tengan este link. Cuando se completan todos los de un sistema, se reinicia solo.</p>
+  <p class="subtitle">Tocá un planeta cuando matás el bicho ahi. Cuando se completan todos los de un sistema, se reinicia solo.</p>
   <div class="container" id="app"></div>
   <div class="reset-all-wrap">
     <button class="reset-all-btn" onclick="resetAll()">Reiniciar todo</button>
@@ -146,83 +152,79 @@ const SYSTEMS = [
   { name: "Tauceti / Oort", planets: ["Venar","Calon","Erebos"] }
 ];
 
-const BLOB_URL = "https://jsonblob.com/api/jsonBlob/019f2f9a-692c-74f9-b785-8992f77491f8";
-const POLL_MS = 3000;
-let state = null;
+const STORAGE_KEY = "enemy-tracker-state-v2";
+let state = {};
 
 function defaultState() {
   const s = {};
-  SYSTEMS.forEach(sys => { s[sys.name] = {}; sys.planets.forEach(p => s[sys.name][p] = false); });
+  SYSTEMS.forEach(sys => {
+    s[sys.name] = {};
+    sys.planets.forEach(p => s[sys.name][p] = { clicked: false, lastAt: null });
+  });
   return s;
 }
 
-async function fetchRemote() {
-  const res = await fetch(BLOB_URL, { cache: "no-store" });
-  if (!res.ok) throw new Error("fetch failed");
-  return res.json();
-}
-
-async function pushRemote() {
+function load() {
   try {
-    await fetch(BLOB_URL, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(state)
-    });
-  } catch (e) {}
-}
-
-async function load() {
-  try {
-    state = await fetchRemote();
+    const raw = localStorage.getItem(STORAGE_KEY);
+    state = raw ? JSON.parse(raw) : defaultState();
   } catch (e) {
     state = defaultState();
   }
   render();
-  setInterval(pollRemote, POLL_MS);
+  setInterval(render, 60000);
 }
 
-async function pollRemote() {
+function save() {
   try {
-    const remote = await fetchRemote();
-    if (JSON.stringify(remote) !== JSON.stringify(state)) {
-      state = remote;
-      render();
-    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch (e) {}
 }
 
+function formatElapsed(ts) {
+  if (!ts) return null;
+  const min = Math.floor((Date.now() - ts) / 60000);
+  if (min < 1) return "recién";
+  if (min < 60) return "hace " + min + "m";
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return "hace " + hr + "h";
+  const day = Math.floor(hr / 24);
+  return "hace " + day + "d";
+}
+
 function toggle(sysName, planet) {
-  state[sysName][planet] = !state[sysName][planet];
-  const allDone = SYSTEMS.find(s => s.name === sysName).planets.every(p => state[sysName][p]);
+  const cell = state[sysName][planet];
+  cell.clicked = !cell.clicked;
+  if (cell.clicked) cell.lastAt = Date.now();
+  const allDone = SYSTEMS.find(s => s.name === sysName).planets.every(p => state[sysName][p].clicked);
+  save();
   render();
-  pushRemote();
   if (allDone) {
     setTimeout(() => {
-      SYSTEMS.find(s => s.name === sysName).planets.forEach(p => state[sysName][p] = false);
+      SYSTEMS.find(s => s.name === sysName).planets.forEach(p => state[sysName][p].clicked = false);
+      save();
       render();
-      pushRemote();
     }, 400);
   }
 }
 
 function resetSystem(sysName) {
-  SYSTEMS.find(s => s.name === sysName).planets.forEach(p => state[sysName][p] = false);
+  SYSTEMS.find(s => s.name === sysName).planets.forEach(p => state[sysName][p].clicked = false);
+  save();
   render();
-  pushRemote();
 }
 
 function resetAll() {
   state = defaultState();
+  save();
   render();
-  pushRemote();
 }
 
 function render() {
   const app = document.getElementById("app");
   app.innerHTML = "";
   SYSTEMS.forEach(sys => {
-    const clickedCount = sys.planets.filter(p => state[sys.name][p]).length;
+    const clickedCount = sys.planets.filter(p => state[sys.name][p].clicked).length;
     const card = document.createElement("div");
     card.className = "card";
 
@@ -254,11 +256,23 @@ function render() {
     grid.className = "planet-grid";
 
     sys.planets.forEach(p => {
-      const clicked = state[sys.name][p];
+      const cell = state[sys.name][p];
       const btn = document.createElement("button");
-      btn.className = "planet-btn" + (clicked ? " clicked" : "");
-      btn.textContent = p;
+      btn.className = "planet-btn" + (cell.clicked ? " clicked" : "");
       btn.onclick = () => toggle(sys.name, p);
+
+      const nameEl = document.createElement("div");
+      nameEl.textContent = p;
+      btn.appendChild(nameEl);
+
+      const elapsed = formatElapsed(cell.lastAt);
+      if (elapsed) {
+        const tsEl = document.createElement("div");
+        tsEl.className = "planet-ts";
+        tsEl.textContent = elapsed;
+        btn.appendChild(tsEl);
+      }
+
       grid.appendChild(btn);
     });
 
@@ -269,5 +283,6 @@ function render() {
 
 load();
 </script>
+
 </body>
 </html>
