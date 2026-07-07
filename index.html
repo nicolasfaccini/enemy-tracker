@@ -418,12 +418,14 @@ function toggle(sysName, planet) {
 }
 
 function resetSystem(sysName) {
+  if (!confirm("¿Reiniciar " + sysName + "? Se borra el historial de ese sistema.")) return;
   state.history[sysName] = [];
   save();
   render();
 }
 
 function resetAll() {
+  if (!confirm("¿Reiniciar TODO? Se borra el historial de los 7 sistemas, no se puede deshacer.")) return;
   state = defaultState();
   save();
   render();
