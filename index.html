@@ -17,6 +17,9 @@
     --red-bg: #3a1a1a;
     --red-border: #6b2a2a;
     --red-text: #e37070;
+    --yellow-bg: #3a331a;
+    --yellow-border: #6b5c2a;
+    --yellow-text: #e3c56f;
   }
   * { box-sizing: border-box; }
   body {
@@ -116,6 +119,11 @@
     background: var(--red-bg);
     color: var(--red-text);
   }
+  .planet-btn.maybe {
+    border-color: var(--yellow-border);
+    background: var(--yellow-bg);
+    color: var(--yellow-text);
+  }
   .planet-ts {
     font-size: 11px;
     font-weight: 400;
@@ -195,6 +203,24 @@ function lastAt(sysName, planet) {
   return null;
 }
 
+function globalClicksSince(ts) {
+  let count = 0;
+  SYSTEMS.forEach(sys => {
+    state.history[sys.name].forEach(entry => {
+      if (entry.at > ts) count++;
+    });
+  });
+  return count;
+}
+
+function isOccupancyLikely(sysName, planet) {
+  const ts = lastAt(sysName, planet);
+  if (ts === null) return false;
+  const minutes = (Date.now() - ts) / 60000;
+  if (minutes >= 130) return true;
+  return globalClicksSince(ts) >= 15;
+}
+
 function globalWaitRanks() {
   const withTime = [];
   SYSTEMS.forEach(sys => {
@@ -210,17 +236,28 @@ function globalWaitRanks() {
 }
 
 function topWaiting(n) {
-  const all = [];
+  const groups = [];
   SYSTEMS.forEach(sys => {
     const blocked = blockedSet(sys.name);
-    sys.planets.forEach(p => {
-      if (blocked.has(p)) return;
-      const at = lastAt(sys.name, p);
-      if (at !== null) all.push({ planet: p, at: at });
+    const available = sys.planets.filter(p => !blocked.has(p));
+    const baseEntries = available
+      .map(p => ({ planet: p, at: lastAt(sys.name, p) }))
+      .filter(x => x.at !== null)
+      .sort((a, b) => a.at - b.at);
+
+    baseEntries.forEach(entry => {
+      const items = [entry.planet];
+      sys.planets.forEach(p2 => {
+        if (p2 === entry.planet || !blocked.has(p2)) return;
+        const at2 = lastAt(sys.name, p2);
+        if (at2 === null || !isOccupancyLikely(sys.name, p2)) return;
+        if (Math.abs(at2 - entry.at) <= 20 * 60000) items.push(p2);
+      });
+      groups.push({ sys: sys.name, at: entry.at, items: items });
     });
   });
-  all.sort((a, b) => a.at - b.at);
-  return all.slice(0, n);
+  groups.sort((a, b) => a.at - b.at);
+  return groups.slice(0, n);
 }
 
 function nextInfo(sysName) {
@@ -338,8 +375,9 @@ function render() {
 
     sys.planets.forEach(p => {
       const isBlocked = blocked.has(p);
+      const maybe = isBlocked && isOccupancyLikely(sys.name, p);
       const btn = document.createElement("button");
-      btn.className = "planet-btn" + (isBlocked ? " clicked" : "");
+      btn.className = "planet-btn" + (maybe ? " maybe" : isBlocked ? " clicked" : "");
       btn.onclick = () => toggle(sys.name, p);
 
       const nameEl = document.createElement("div");
@@ -391,7 +429,7 @@ function render() {
     pTitle.textContent = "Top 7 prioridad";
     pCard.appendChild(pTitle);
 
-    const listText = top.map((x, i) => (i + 1) + "." + x.planet).join("  ");
+    const listText = top.map((x, i) => (i + 1) + "." + x.items.join("/")).join("  ");
 
     const listEl = document.createElement("div");
     listEl.className = "priority-list";
