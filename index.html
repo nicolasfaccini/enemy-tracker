@@ -155,11 +155,100 @@
     color: var(--text);
     border-color: var(--text-secondary);
   }
+  .title-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .title-row h1 {
+    margin: 0;
+  }
+  .help-btn {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+  .help-btn:hover {
+    color: var(--text);
+    border-color: var(--text-secondary);
+  }
+  .help-panel {
+    display: none;
+    max-width: 720px;
+    margin: 0 auto 20px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 18px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+  }
+  .help-panel.open {
+    display: block;
+  }
+  .help-panel h3 {
+    color: var(--text);
+    font-size: 14px;
+    margin: 14px 0 4px;
+  }
+  .help-panel h3:first-child {
+    margin-top: 0;
+  }
+  .help-panel ul {
+    margin: 4px 0;
+    padding-left: 20px;
+  }
+  .help-panel strong {
+    color: var(--text);
+  }
 </style>
 </head>
 <body>
-  <h1>Tracker de spawn de enemigos</h1>
+  <div class="title-row">
+    <h1>Tracker de spawn de enemigos</h1>
+    <button class="help-btn" onclick="toggleHelp()">?</button>
+  </div>
   <p class="subtitle">Tocá el planeta donde matás al bicho. Se libera solo cuando salieron todos los demás del sistema.</p>
+  <div class="help-panel" id="helpPanel">
+    <h3>Cómo se usa</h3>
+    <ul>
+      <li>Tocá un planeta cuando matás al bicho ahí. Pasa a rojo. Si te equivocaste, tocalo de nuevo enseguida para deshacerlo (solo funciona si fue tu click más reciente en ese sistema).</li>
+    </ul>
+    <h3>Colores</h3>
+    <ul>
+      <li><strong>Verde</strong> = disponible, puede nacer ahí.</li>
+      <li><strong>Rojo</strong> = bloqueado, todavía no puede nacer ahí (le faltan los demás planetas del sistema).</li>
+      <li><strong>Amarillo</strong> = bloqueado pero hace bastante que no lo revisás — puede que YA haya algo vivo ahí (el juego a veces "rellena" solo, aunque nuestra cuenta diga que está bloqueado).</li>
+    </ul>
+    <h3>"✓ 100% seguro"</h3>
+    <ul>
+      <li>Aparece en el único planeta disponible de un sistema. Significa que el próximo bicho que nazca en ese sistema va a estar ahí, sí o sí — no que ya haya algo vivo ahí ahora mismo.</li>
+    </ul>
+    <h3>Debajo de cada planeta</h3>
+    <ul>
+      <li>Hora exacta en que lo mataste + tu posición en el ranking global (-1 es el más viejo de los 20), y abajo "hace Xm" (tiempo transcurrido). El color de esa línea indica qué tan prioritario es a nivel global.</li>
+    </ul>
+    <h3>Top 7 prioridad</h3>
+    <ul>
+      <li>Lista resumida de por dónde conviene empezar a recorrer, con botón "Copiar" para pegarla en el chat del juego.</li>
+    </ul>
+    <h3>Reiniciar</h3>
+    <ul>
+      <li>El de cada sistema borra el historial de ESE sistema. "Reiniciar todo" resetea los 7 de una.</li>
+    </ul>
+    <p style="margin:12px 0 0">Todo se guarda en tu navegador — cada uno tiene su propia copia, no se comparte entre jugadores.</p>
+  </div>
   <div class="container" id="app"></div>
   <div class="reset-all-wrap">
     <button class="reset-all-btn" onclick="resetAll()">Reiniciar todo</button>
@@ -270,6 +359,10 @@ function nextInfo(sysName) {
     return { planet: available[0], certain: true };
   }
   return null;
+}
+
+function toggleHelp() {
+  document.getElementById("helpPanel").classList.toggle("open");
 }
 
 function load() {
